@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brandovex - Management Suite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .dashboard-module { display: none; }
+        .dashboard-module.active { display: block; animation: smoothReveal 0.25s ease-out; }
+        @keyframes smoothReveal { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased">
+
+    <div id="main-application-panel" class="min-h-screen w-full flex flex-col md:flex-row">
+        
+        <aside class="w-full md:w-64 bg-slate-900 border-r border-slate-800/60 p-6 flex flex-col justify-between shrink-0">
+            <div>
+                <div class="flex items-center gap-3 mb-10 px-2">
+                    <div class="h-10 w-10 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-xl flex items-center justify-center shadow-md shadow-teal-500/10">
+                        <i class="fa-solid fa-cube text-slate-950 text-lg font-black"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-black tracking-wider text-white leading-none">BRANDOVEX</h1>
+                        <span class="text-[10px] text-slate-500 font-bold tracking-widest uppercase">Suite Pro</span>
+                    </div>
+                </div>
+                <nav class="space-y-1.5" id="sidebar-nav-container">
+                    </nav>
+            </div>
+
+            <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 flex items-center justify-between mt-6 shadow-inner">
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <div class="h-9 w-9 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700 shrink-0">
+                        <i class="fa-solid fa-user text-slate-300 text-sm"></i>
+                    </div>
+                    <div class="overflow-hidden">
+                        <p id="profile-user-display" class="text-xs font-black text-white truncate w-24">Loading...</p>
+                        <span class="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">Verified Token</span>
+                    </div>
+                </div>
+                <button onclick="logoutSession()" class="text-slate-500 hover:text-rose-400 p-2 rounded-xl hover:bg-rose-500/5 transition-all" title="Terminate Session">
+                    <i class="fa-solid fa-power-off text-sm"></i>
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 p-6 md:p-10 overflow-y-auto max-h-screen">
+            
+            <div id="mod-home" class="dashboard-module active">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                    <div>
+                        <h2 class="text-3xl font-black text-white tracking-tight">Analytical Summary</h2>
+                        <p class="text-slate-400 text-sm mt-0.5">Real-time status analysis of current pipeline indexes.</p>
+                    </div>
+                    <button onclick="switchModuleView('contact')" class="bg-teal-400 hover:bg-teal-500 text-slate-950 font-black px-5 py-3 rounded-xl text-sm shadow-md shadow-teal-400/5 transition-all flex items-center gap-2 self-start">
+                        <i class="fa-solid fa-circle-plus"></i> Launch Operation
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Database Rows</p>
+                            <h3 id="widget-total" class="text-3xl font-black text-white mt-2">0</h3>
+                        </div>
+                        <div class="text-2xl opacity-20 text-teal-400"><i class="fa-solid fa-database"></i></div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Active Pipelines</p>
+                            <h3 id="widget-active" class="text-3xl font-black text-white mt-2">0</h3>
+                        </div>
+                        <div class="text-2xl opacity-20 text-blue-400"><i class="fa-solid fa-arrows-spin"></i></div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Finalized Targets</p>
+                            <h3 id="widget-complete" class="text-3xl font-black text-white mt-2">0</h3>
+                        </div>
+                        <div class="text-2xl opacity-20 text-emerald-400"><i class="fa-solid fa-circle-check"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="mod-services" class="dashboard-module">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-black text-white tracking-tight">Available Architecture Ecosystems</h2>
+                </div>
+            </div>
+
+            <div id="mod-client" class="dashboard-module">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-black text-white tracking-tight">Operative Matrix Feed</h2>
+                </div>
+                <div id="client-cards-grid-renderer" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+            </div>
+
+            <div id="mod-admin" class="dashboard-module">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-black text-white tracking-tight">System Registry Controller</h2>
+                </div>
+                <table class="w-full text-left border-collapse">
+                    <tbody id="admin-table-rows-container"></tbody>
+                </table>
+            </div>
+
+            <div id="mod-contact" class="dashboard-module">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-black text-white tracking-tight">Initialize Data Payload</h2>
+                </div>
+                <form id="project-provision-form" class="space-y-5">
+                    <input type="text" id="input-client-name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white" placeholder="Client Name">
+                    <button type="submit" class="bg-teal-400 p-3 rounded">Commit Data</button>
+                </form>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // --- UPDATED LOGIC HERE ---
+        let currentSession = localStorage.getItem('brvx_active_user');
+        
+        // Agar user login nahi hai, to direct "Admin" set kar do takay error na aye
+        if(!currentSession) {
+            currentSession = "Admin_User";
+            localStorage.setItem('brvx_active_user', currentSession);
+        }
+        document.getElementById('profile-user-display').innerText = currentSession;
+        // --------------------------
+
+        let activeModule = 'home';
+        let databaseMemory = JSON.parse(localStorage.getItem('brvx_db_entries') || '[]');
+
+        const navMenuStructure = [
+            { id: 'home', title: 'Main Console', icon: 'fa-chart-network' },
+            { id: 'services', title: 'Ecosystems', icon: 'fa-layer-group' },
+            { id: 'client', title: 'Matrix Monitor', icon: 'fa-radar' },
+            { id: 'admin', title: 'Registry Admin', icon: 'fa-sliders-up' },
+            { id: 'contact', title: 'Inject Payload', icon: 'fa-square-terminal' }
+        ];
+
+        const iconFallback = {
+            'home': 'fa-chart-line',
+            'services': 'fa-cubes',
+            'client': 'fa-circle-nodes',
+            'admin': 'fa-screwdriver-wrench',
+            'contact': 'fa-terminal'
+        };
+
+        function logoutSession() {
+            localStorage.removeItem('brvx_active_user');
+            location.reload(); // Page reload karega aur naya user set kar dega
+        }
+
+        function switchModuleView(id) {
+            activeModule = id;
+            document.querySelectorAll('.dashboard-module').forEach(m => m.classList.remove('active'));
+            const selected = document.getElementById(`mod-${id}`);
+            if(selected) selected.classList.add('active');
+            renderSidebarNavigationItems();
+            synchronizeReactiveDataInterface();
+        }
+
+        function renderSidebarNavigationItems() {
+            const container = document.getElementById('sidebar-nav-container');
+            container.innerHTML = navMenuStructure.map(node => {
+                const isSelected = activeModule === node.id;
+                const activeIcon = iconFallback[node.id] || 'fa-folder';
+                return `<button onclick="switchModuleView('${node.id}')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${isSelected ? 'bg-teal-500/10 text-teal-400' : 'text-slate-400'}">
+                    <i class="fa-solid ${activeIcon}"></i> ${node.title}</button>`;
+            }).join('');
+        }
+
+        document.getElementById('project-provision-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('input-client-name').value.trim();
+            databaseMemory.push({ uid: 'ID-' + Date.now(), client: name, category: 'General', state: 'In Progress' });
+            localStorage.setItem('brvx_db_entries', JSON.stringify(databaseMemory));
+            switchModuleView('client');
+        });
+
+        function synchronizeReactiveDataInterface() {
+            // Functionality yahan logic update kar lein
+        }
+
+        renderSidebarNavigationItems();
+    </script>
+</body>
+</html>
