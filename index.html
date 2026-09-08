@@ -550,7 +550,6 @@
             const roomToJoin = urlParams.get('room');
 
             if (roomToJoin) {
-                // Check if the meeting has already been ended/terminated by the host
                 let endedRooms = JSON.parse(localStorage.getItem('zk_ended_rooms')) || [];
                 if (endedRooms.includes(roomToJoin)) {
                     alert("⚠️ This meeting has already been ended by the host. You cannot join anymore.");
@@ -638,7 +637,6 @@
             allMeetings.push({ title, date, time, pass, phone, roomId, owner: currentUser.username });
             localStorage.setItem('zk_meetings_elite', JSON.stringify(allMeetings));
 
-            // Remove from ended rooms if it was previously ended and rescheduled
             let endedRooms = JSON.parse(localStorage.getItem('zk_ended_rooms')) || [];
             endedRooms = endedRooms.filter(id => id !== roomId);
             localStorage.setItem('zk_ended_rooms', JSON.stringify(endedRooms));
@@ -689,18 +687,14 @@
             audio: {
                 echoCancellation: true,
                 noiseSuppression: true,
-                autoGainControl: true,
-                googEchoCancellation: true,
-                googNoiseSuppression: true,
-                googHighpassFilter: true
+                autoGainControl: true
             }
         };
 
-        function startHostRoom(roomId, title) {
+        async function startHostRoom(roomId, title) {
             isHost = true;
             activeRoomId = roomId;
 
-            // Clear ended status for this room when host restarts it
             let endedRooms = JSON.parse(localStorage.getItem('zk_ended_rooms')) || [];
             endedRooms = endedRooms.filter(id => id !== roomId);
             localStorage.setItem('zk_ended_rooms', JSON.stringify(endedRooms));
@@ -709,6 +703,15 @@
             document.getElementById('roomScreen').classList.add('active');
             document.getElementById('activeRoomTitle').innerText = title + " (Host)";
             document.getElementById('localUserTag').innerText = `👤 ${currentUser.name} (Host)`;
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia(eliteMediaConstraints);
+                localVideo.srcObject = localStream;
+                startTimer();
+            } catch (err) {
+                alert("Camera or Microphone access blocked/not found. Please check your PC permissions.");
+                return;
+            }
 
             peer = new Peer(roomId);
             peer.on('open', (id) => {
@@ -721,20 +724,15 @@
 
             peer.on('call', (call) => {
                 activeCall = call;
-                navigator.mediaDevices.getUserMedia(eliteMediaConstraints).then(stream => {
-                    localStream = stream;
-                    localVideo.srcObject = stream;
-                    call.answer(stream);
-                    call.on('stream', (remoteStream) => {
-                        remoteVideo.srcObject = remoteStream;
-                        document.getElementById('connStatus').innerText = "Connected (Elite Live)";
-                    });
+                call.answer(localStream);
+                call.on('stream', (remoteStream) => {
+                    remoteVideo.srcObject = remoteStream;
+                    document.getElementById('connStatus').innerText = "Connected (Elite Live)";
                 });
             });
-            initCamOnly();
         }
 
-        function startClientRoom(roomId, password, title) {
+        async function startClientRoom(roomId, password, title) {
             isHost = false;
             activeRoomId = roomId;
 
@@ -744,11 +742,19 @@
             document.getElementById('activeRoomTitle').innerText = title;
             document.getElementById('localUserTag').innerText = `👤 ${title}`;
 
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia(eliteMediaConstraints);
+                localVideo.srcObject = localStream;
+                startTimer();
+            } catch (err) {
+                alert("Camera or Microphone access blocked/not found. Please check your PC permissions.");
+                return;
+            }
+
             peer = new Peer();
             peer.on('open', (id) => {
                 document.getElementById('connStatus').innerText = "Connecting...";
 
-                // Connect data channel to receive end-call signal from host
                 dataConnection = peer.connect(roomId);
                 dataConnection.on('data', (data) => {
                     if (data === 'END_MEETING') {
@@ -757,34 +763,20 @@
                     }
                 });
 
-                navigator.mediaDevices.getUserMedia(eliteMediaConstraints).then(stream => {
-                    localStream = stream;
-                    localVideo.srcObject = stream;
-                    const call = peer.call(roomId, stream);
-                    if(call) {
-                        activeCall = call;
-                        call.on('stream', (remoteStream) => {
-                            remoteVideo.srcObject = remoteStream;
-                            document.getElementById('connStatus').innerText = "Connected (Elite Live)";
-                        });
-                    }
-                }).catch(err => alert("Camera/Mic permission denied."));
+                const call = peer.call(roomId, localStream);
+                if (call) {
+                    activeCall = call;
+                    call.on('stream', (remoteStream) => {
+                        remoteVideo.srcObject = remoteStream;
+                        document.getElementById('connStatus').innerText = "Connected (Elite Live)";
+                    });
+                }
             });
             
             peer.on('error', (err) => {
                 alert("Connection error or room has been terminated.");
                 forceExitRoom();
             });
-
-            startTimer();
-        }
-
-        async function initCamOnly() {
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia(eliteMediaConstraints);
-                localVideo.srcObject = localStream;
-                startTimer();
-            } catch (err) { alert("Camera/Mic permission required."); }
         }
 
         function startTimer() {
@@ -802,14 +794,12 @@
             if (isHost) {
                 let confirmEnd = confirm("End meeting for all participants?");
                 if (confirmEnd) {
-                    // Mark room as ended in localStorage so nobody can join via link anymore
                     let endedRooms = JSON.parse(localStorage.getItem('zk_ended_rooms')) || [];
                     if (!endedRooms.includes(activeRoomId)) {
                         endedRooms.push(activeRoomId);
                         localStorage.setItem('zk_ended_rooms', JSON.stringify(endedRooms));
                     }
 
-                    // Notify connected participants
                     if (dataConnection && dataConnection.open) {
                         dataConnection.send('END_MEETING');
                     }
