@@ -703,6 +703,26 @@
             }
         };
 
+        // Robust media stream handler with intelligent fallbacks
+        async function getLocalMediaStream() {
+            try {
+                return await navigator.mediaDevices.getUserMedia(eliteMediaConstraints);
+            } catch (err1) {
+                console.warn("Elite constraints failed, trying basic constraints...", err1);
+                try {
+                    return await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                } catch (err2) {
+                    console.warn("Video+Audio failed, trying audio only...", err2);
+                    try {
+                        return await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+                    } catch (err3) {
+                        console.error("All media attempts failed:", err3);
+                        throw err3;
+                    }
+                }
+            }
+        }
+
         async function startHostRoom(roomId, title) {
             isHost = true;
             activeRoomId = roomId;
@@ -717,11 +737,11 @@
             document.getElementById('localUserTag').innerText = `👤 ${currentUser.name} (Host)`;
 
             try {
-                localStream = await navigator.mediaDevices.getUserMedia(eliteMediaConstraints);
+                localStream = await getLocalMediaStream();
                 localVideo.srcObject = localStream;
                 startTimer();
             } catch (err) {
-                alert("Camera or Microphone access blocked/not found. Please check your PC permissions.");
+                alert("Camera or Microphone access blocked/not found. Please check your browser or PC permissions.");
                 forceExitRoom();
                 return;
             }
@@ -763,11 +783,11 @@
             document.getElementById('localUserTag').innerText = `👤 ${title}`;
 
             try {
-                localStream = await navigator.mediaDevices.getUserMedia(eliteMediaConstraints);
+                localStream = await getLocalMediaStream();
                 localVideo.srcObject = localStream;
                 startTimer();
             } catch (err) {
-                alert("Camera or Microphone access blocked/not found. Please check your PC permissions.");
+                alert("Camera or Microphone access blocked/not found. Please check your browser or PC permissions.");
                 forceExitRoom();
                 return;
             }
@@ -855,14 +875,22 @@
 
         function toggleMic() {
             const track = localStream.getAudioTracks()[0];
-            track.enabled = !track.enabled;
-            document.getElementById('micBtn').classList.toggle('danger', !track.enabled);
+            if (track) {
+                track.enabled = !track.enabled;
+                document.getElementById('micBtn').classList.toggle('danger', !track.enabled);
+            } else {
+                alert("No audio track found!");
+            }
         }
 
         function toggleCam() {
             const track = localStream.getVideoTracks()[0];
-            track.enabled = !track.enabled;
-            document.getElementById('camBtn').classList.toggle('danger', !track.enabled);
+            if (track) {
+                track.enabled = !track.enabled;
+                document.getElementById('camBtn').classList.toggle('danger', !track.enabled);
+            } else {
+                alert("No video track found!");
+            }
         }
 
         function toggleBlur() {
