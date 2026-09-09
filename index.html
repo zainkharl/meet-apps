@@ -703,26 +703,6 @@
             }
         };
 
-        // Robust media stream handler with intelligent fallbacks
-        async function getLocalMediaStream() {
-            try {
-                return await navigator.mediaDevices.getUserMedia(eliteMediaConstraints);
-            } catch (err1) {
-                console.warn("Elite constraints failed, trying basic constraints...", err1);
-                try {
-                    return await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                } catch (err2) {
-                    console.warn("Video+Audio failed, trying audio only...", err2);
-                    try {
-                        return await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-                    } catch (err3) {
-                        console.error("All media attempts failed:", err3);
-                        throw err3;
-                    }
-                }
-            }
-        }
-
         async function startHostRoom(roomId, title) {
             isHost = true;
             activeRoomId = roomId;
@@ -737,18 +717,25 @@
             document.getElementById('localUserTag').innerText = `👤 ${currentUser.name} (Host)`;
 
             try {
-                localStream = await getLocalMediaStream();
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("MediaDevices API not supported.");
+                }
+                localStream = await navigator.mediaDevices.getUserMedia(eliteMediaConstraints);
                 localVideo.srcObject = localStream;
                 startTimer();
             } catch (err) {
-                alert("Camera or Microphone access blocked/not found. Please check your browser or PC permissions.");
-                forceExitRoom();
-                return;
+                console.warn("Media access warning:", err);
+                document.getElementById('connStatus').innerText = "Camera/Mic unavailable (Audio/Video-less mode)";
+                document.getElementById('connStatus').style.color = "#ff9800";
             }
 
             peer = new Peer(roomId, peerConfig);
             peer.on('open', (id) => {
-                document.getElementById('connStatus').innerText = "Waiting for participant...";
+                if (!localStream) {
+                    document.getElementById('connStatus').innerText = "Waiting for participant (No Media)...";
+                } else {
+                    document.getElementById('connStatus').innerText = "Waiting for participant...";
+                }
             });
 
             peer.on('connection', (conn) => {
@@ -760,7 +747,7 @@
 
             peer.on('call', (call) => {
                 activeCall = call;
-                call.answer(localStream);
+                call.answer(localStream || new MediaStream());
                 call.on('stream', (remoteStream) => {
                     remoteVideo.srcObject = remoteStream;
                     document.getElementById('connStatus').innerText = "Connected (Elite Live)";
@@ -783,13 +770,16 @@
             document.getElementById('localUserTag').innerText = `👤 ${title}`;
 
             try {
-                localStream = await getLocalMediaStream();
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("MediaDevices API not supported.");
+                }
+                localStream = await navigator.mediaDevices.getUserMedia(eliteMediaConstraints);
                 localVideo.srcObject = localStream;
                 startTimer();
             } catch (err) {
-                alert("Camera or Microphone access blocked/not found. Please check your browser or PC permissions.");
-                forceExitRoom();
-                return;
+                console.warn("Media access warning:", err);
+                document.getElementById('connStatus').innerText = "Camera/Mic unavailable (Audio/Video-less mode)";
+                document.getElementById('connStatus').style.color = "#ff9800";
             }
 
             peer = new Peer(peerConfig);
@@ -806,7 +796,7 @@
                     });
                 }
 
-                const call = peer.call(roomId, localStream);
+                const call = peer.call(roomId, localStream || new MediaStream());
                 if (call) {
                     activeCall = call;
                     call.on('stream', (remoteStream) => {
@@ -874,23 +864,23 @@
         }
 
         function toggleMic() {
-            const track = localStream.getAudioTracks()[0];
-            if (track) {
-                track.enabled = !track.enabled;
-                document.getElementById('micBtn').classList.toggle('danger', !track.enabled);
-            } else {
-                alert("No audio track found!");
+            if (!localStream || localStream.getAudioTracks().length === 0) {
+                alert("No microphone track available.");
+                return;
             }
+            const track = localStream.getAudioTracks()[0];
+            track.enabled = !track.enabled;
+            document.getElementById('micBtn').classList.toggle('danger', !track.enabled);
         }
 
         function toggleCam() {
-            const track = localStream.getVideoTracks()[0];
-            if (track) {
-                track.enabled = !track.enabled;
-                document.getElementById('camBtn').classList.toggle('danger', !track.enabled);
-            } else {
-                alert("No video track found!");
+            if (!localStream || localStream.getVideoTracks().length === 0) {
+                alert("No camera track available.");
+                return;
             }
+            const track = localStream.getVideoTracks()[0];
+            track.enabled = !track.enabled;
+            document.getElementById('camBtn').classList.toggle('danger', !track.enabled);
         }
 
         function toggleBlur() {
@@ -914,13 +904,17 @@
 
         function stopScreenShare() {
             if(screenStream) screenStream.getTracks().forEach(t => t.stop());
-            localVideo.srcObject = localStream;
+            localVideo.srcObject = localStream || null;
             isSharingScreen = false;
             document.getElementById('screenBtn').classList.remove('active');
         }
 
         function toggleRecording() {
             const btn = document.getElementById('recordBtn');
+            if (!localStream) {
+                alert("Recording requires active media stream.");
+                return;
+            }
             if (!isRecording) {
                 recordedChunks = [];
                 mediaRecorder = new MediaRecorder(localStream, { mimeType: 'video/webm' });
